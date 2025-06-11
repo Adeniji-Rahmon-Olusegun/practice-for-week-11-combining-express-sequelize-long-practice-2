@@ -7,11 +7,14 @@ const router = express.Router();
  */
 // Your code here
 
+
 /**
  * INTERMEDIATE BONUS PHASE 1 (OPTIONAL), Step A:
  *   Import Op to perform comparison operations in WHERE clauses
  **/
 // Your code here
+const { Op } = require('sequelize');
+const { Tree } = require('../db/models')
 
 /**
  * BASIC PHASE 1, Step B - List of all trees in the database
@@ -27,6 +30,12 @@ router.get('/', async (req, res, next) => {
     let trees = [];
 
     // Your code here
+    trees = await Tree.findAll(
+        {
+            attributes: ['id', 'tree', 'heightFt'],
+            order: [['heightFt', 'DESC']]
+        }
+    );
 
     res.json(trees);
 });
@@ -45,6 +54,9 @@ router.get('/:id', async (req, res, next) => {
 
     try {
         // Your code here
+        const { id } = req.params;
+
+        tree = await Tree.findByPk(id)
 
         if (tree) {
             res.json(tree);
@@ -82,9 +94,23 @@ router.get('/:id', async (req, res, next) => {
  */
 router.post('/', async (req, res, next) => {
     try {
+        const { name, location, height, size } = req.body;
+
+        const newTree = await Tree.build(
+            {
+                tree: name,
+                location,
+                heightFt: height,
+                groundCircumferenceFt: size
+            }
+        );
+
+        await newTree.save();
+
         res.json({
             status: "success",
             message: "Successfully created new tree",
+            newTree
         });
     } catch(err) {
         next({
@@ -117,10 +143,26 @@ router.post('/', async (req, res, next) => {
  */
 router.delete('/:id', async (req, res, next) => {
     try {
-        res.json({
-            status: "success",
-            message: `Successfully removed tree ${req.params.id}`,
-        });
+        const { id } = req.params;
+
+        const tree = await Tree.findByPk(id);
+
+        if (tree){
+            await tree.destroy();
+            res.json({
+                status: "success",
+                message: `Successfully removed tree ${id}`,
+                tree
+            });
+        } else {
+            next(
+                {
+                    status: 'not-found',
+                    message: `Could not remove tree with id ${id}`,
+                    details: 'Tree not found'
+                }
+            );
+        }  
     } catch(err) {
         next({
             status: "error",
@@ -167,6 +209,45 @@ router.delete('/:id', async (req, res, next) => {
 router.put('/:id', async (req, res, next) => {
     try {
         // Your code here
+        const Id = req.params.id;
+        const { id, name, location, height, size } = req.body;
+
+        if (Number(Id) !== id){
+            console.log(typeof id)
+            next({
+                status: 'error',
+                message: `could not update tree ${Id}`,
+                details: `${Id} does match ${id}`
+            });
+        }
+        
+        const tree = await Tree.findByPk(Id);
+
+        if (!tree){
+            next({
+                status: 'not-found',
+                message: `could not update tree ${Id}`,
+                details: 'Tree not found'
+            });
+        } else if (tree){
+            
+            await tree.set({
+                tree: name,
+                location,
+                heightFt: height,
+                groundCircumferenceFt: size
+            });
+
+            await tree.save();
+
+            const updatedTree = await Tree.findByPk(Id);
+
+            res.json({
+                status: "Success",
+                message: "Successfully updated tree",
+                data: updatedTree
+            });
+        }
     } catch(err) {
         next({
             status: "error",
@@ -190,6 +271,19 @@ router.put('/:id', async (req, res, next) => {
 router.get('/search/:value', async (req, res, next) => {
     let trees = [];
 
+    const pattern = req.params.value;
+
+    trees = await Tree.findAll(
+        {
+            where: {
+                [Op.or]: [
+                    {tree: {[Op.like]: `%${pattern}`} },
+                    {tree: {[Op.like]: `${pattern}%`} },
+                    {tree: {[Op.like]: `%${pattern}%`} },
+                ]
+            }
+        }
+    )
 
     res.json(trees);
 });
