@@ -2,6 +2,9 @@
 const {
   Model
 } = require('sequelize');
+
+//const { InsectTree } = require('../models');
+
 module.exports = (sequelize, DataTypes) => {
   class Tree extends Model {
     /**
@@ -11,6 +14,14 @@ module.exports = (sequelize, DataTypes) => {
      */
     static associate(models) {
       // define association here
+      Tree.belongsToMany(
+        models.Insect,
+        { 
+          through: models.InsectTree,
+          foreignKey: 'treeId',
+          otherKey: 'insectId'
+        }
+      );
     }
   };
   Tree.init({
